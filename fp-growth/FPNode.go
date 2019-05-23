@@ -8,8 +8,10 @@ type FPNode struct {
 	Count    int //支持度计数
 	Parent   *FPNode
 	Children map[ItemType]*FPNode
+	Neighber *FPNode
 }
 
+// NewFPNode 生成新的节点
 func NewFPNode(item ItemType, p *FPNode) *FPNode {
 	return &FPNode{Item: item, Count: 1, Parent: p}
 }

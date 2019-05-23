@@ -1,7 +1,18 @@
 package growth
 
+type Route [2]*FPNode
 type FPTree struct {
-	Root *FPNode
+	Root   *FPNode
+	routes map[ItemType]Route
+}
+
+func (t *FPTree) updateRoute(point *FPNode) {
+	if route, ok := t.routes[point.Item]; ok {
+		route[1].Neighber = point
+		t.routes[point.Item] = Route{route[0], point}
+	} else {
+		t.routes[point.Item] = Route{point, point}
+	}
 }
 
 func (t *FPTree) Add(trans Transaction) {
@@ -9,9 +20,20 @@ func (t *FPTree) Add(trans Transaction) {
 	for _, item := range trans {
 		nextPoint := point.Search(item)
 		if nextPoint != nil {
-			nextPoint
+			nextPoint.Increment()
+		} else {
+			nextPoint = &FPNode{Item: item}
+			point.Add(nextPoint)
+			t.updateRoute(nextPoint)
 		}
+		point = nextPoint
 	}
+}
+func (t FPTree) Items() {
+
+}
+func (t FPTree) Nodes(item ItemType) {
+
 }
 
 func FindFrequentItemsets(transactions []Transaction, min_supp float64) {
@@ -38,4 +60,11 @@ func FindFrequentItemsets(transactions []Transaction, min_supp float64) {
 	}
 
 	master := FPTree{}
+	for _, trans := range transactions {
+		master.Add(cleanTrans(trans))
+	}
+
+	// TODO:
+	var findWithSuffix func(FPTree, []ItemType)
+	_ = findWithSuffix
 }
