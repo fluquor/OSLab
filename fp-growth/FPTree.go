@@ -29,11 +29,25 @@ func (t *FPTree) Add(trans Transaction) {
 		point = nextPoint
 	}
 }
-func (t FPTree) Items() {
-
+func (t FPTree) Items()map[ItemType][]*ItemType  {
+	result:=make(map[ItemType][]*ItemType)
+	for key := range t.routes{
+		result[key]=t.Nodes(key)
+	}
+	return result
 }
-func (t FPTree) Nodes(item ItemType) {
-
+func (t *FPTree) Nodes(item ItemType) []*ItemType{
+	if route,ok:=t.routes[item];!ok{
+		return []*ItemType{}
+	}else{
+		result:=make([]*ItemType,0)
+		node:=route[0]
+		result=append(result,node)
+		for node!=nil {
+			node=node.Neighber
+		}
+		return result
+	}
 }
 
 func FindFrequentItemsets(transactions []Transaction, min_supp float64) {
@@ -65,6 +79,9 @@ func FindFrequentItemsets(transactions []Transaction, min_supp float64) {
 	}
 
 	// TODO:
-	var findWithSuffix func(FPTree, []ItemType)
+	var findWithSuffix func(*FPTree, []ItemType)
+	findWithSuffix = func(t *FPTree, suffix []ItemType) {
+		for item,nodes := range t.Items()
+	}
 	_ = findWithSuffix
 }
