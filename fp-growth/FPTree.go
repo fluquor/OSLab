@@ -22,35 +22,54 @@ func (t *FPTree) Add(trans Transaction) {
 		if nextPoint != nil {
 			nextPoint.Increment()
 		} else {
-			nextPoint = &FPNode{Item: item}
+			nextPoint = NewFPNode(item, point)
 			point.Add(nextPoint)
 			t.updateRoute(nextPoint)
 		}
 		point = nextPoint
 	}
 }
-func (t FPTree) Items()map[ItemType][]*ItemType  {
-	result:=make(map[ItemType][]*ItemType)
-	for key := range t.routes{
-		result[key]=t.Nodes(key)
+func (t FPTree) Items() map[ItemType][]*FPNode {
+	result := make(map[ItemType][]*FPNode)
+	for key := range t.routes {
+		result[key] = t.Nodes(key)
 	}
 	return result
 }
-func (t *FPTree) Nodes(item ItemType) []*ItemType{
-	if route,ok:=t.routes[item];!ok{
-		return []*ItemType{}
-	}else{
-		result:=make([]*ItemType,0)
-		node:=route[0]
-		result=append(result,node)
-		for node!=nil {
-			node=node.Neighber
+func (t *FPTree) Nodes(item ItemType) []*FPNode {
+	if route, ok := t.routes[item]; !ok {
+		return []*FPNode{}
+	} else {
+		result := make([]*FPNode, 0)
+		node := route[0]
+		result = append(result, node)
+		for node != nil {
+			node = node.Neighber
 		}
 		return result
 	}
 }
 
-func FindFrequentItemsets(transactions []Transaction, min_supp float64) {
+func (t *FPTree) PrefixPaths(item ItemType) [][]*FPNode {
+	collectPath := func(t *FPNode) {
+		path := make([]*FPNode)
+		for t != nil && !t.IsRoot() {
+			path = append(path, t)
+			t = t.Parent
+		}
+		for i := len(path)/2 - 1; i >= 0; i-- {
+			opp := len(path) - 1 - i
+			a[i], a[opp] = a[opp], a[i]
+		}
+		return path
+	}
+	result := make([][]*FPNode)
+	for _, node := range t.Nodes(item) {
+		append(result, collectPath(node))
+	}
+	return result
+}
+func FindFrequentItemsets(transactions []Transaction, min_supp float64, itemSetChan chan<- []ItemType) {
 	min_count := int(float64(len(transactions)) * min_supp)
 	items := make(map[ItemType]int)
 	for _, trans := range transactions {
@@ -78,10 +97,52 @@ func FindFrequentItemsets(transactions []Transaction, min_supp float64) {
 		master.Add(cleanTrans(trans))
 	}
 
-	// TODO:
-	var findWithSuffix func(*FPTree, []ItemType)
-	findWithSuffix = func(t *FPTree, suffix []ItemType) {
-		for item,nodes := range t.Items()
+	// 利用管道来返回结果
+	var findWithSuffix func(*FPTree, []ItemType, chan<- []ItemType)
+	findWithSuffix = func(t *FPTree, suffix []ItemType, result chan<- []ItemType) {
+		for item, nodes := range t.Items() {
+			support := 0
+			for _, node := range nodes {
+				support += node.Count
+			}
+			if support > min_count {
+				for _, v := range suffix {
+					if item == v {
+						continue
+					} else {
+						foundSet := []ItemType{item}
+						foundSet = append(foundSet, suffix...)
+						result <- foundSet
+					}
+				}
+
+			}
+
+		}
 	}
-	_ = findWithSuffix
+}
+
+func ConditionalTreeFromPaths(paths [][]*FPNode) {
+	tree := FPTree{}
+	var condItem = NilItem
+	items := make(map[ItemType]bool)
+	for _, path := range paths {
+		if condItem == NilItem {
+			condItem = path[len(path)-1].Item
+		}
+		point := tree.Root
+		for _, node := range path {
+			nextPoint := point.Search(node.Item)
+			if nextPoint == nil {
+				items[node.Item] = true
+				count := 0
+				if node.Item == condItem {
+					count = node.Count
+				}
+				nextPoint = &FPNode{Tree: &tree, Item: node.Item, Count: 1}
+				point.Add(nextPoint)
+				tree.updateRoute()
+			}
+		}
+	}
 }

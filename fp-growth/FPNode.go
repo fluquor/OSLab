@@ -3,10 +3,15 @@ package growth
 type ItemType string
 type Transaction []ItemType
 
+const (
+	NilItem ItemType = ""
+)
+
 type FPNode struct {
 	Item     ItemType
 	Count    int //支持度计数
 	Parent   *FPNode
+	Tree     *FPTree
 	Children map[ItemType]*FPNode
 	Neighber *FPNode
 }
@@ -23,6 +28,7 @@ func (n *FPNode) Add(child *FPNode) {
 	}
 }
 
+// Search 在节点的孩子节点中搜索目标Item对应节点
 func (n FPNode) Search(item ItemType) *FPNode {
 	if _, ok := n.Children[item]; !ok {
 		return n.Children[item]
