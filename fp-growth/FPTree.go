@@ -8,7 +8,7 @@ type FPTree struct {
 
 func (t *FPTree) updateRoute(point *FPNode) {
 	if route, ok := t.routes[point.Item]; ok {
-		route[1].Neighber = point
+		route[1].Neighbor = point
 		t.routes[point.Item] = Route{route[0], point}
 	} else {
 		t.routes[point.Item] = Route{point, point}
@@ -45,7 +45,7 @@ func (t *FPTree) Nodes(item ItemType) []*FPNode {
 	node := route[0]
 	result = append(result, node)
 	for node != nil {
-		node = node.Neighber
+		node = node.Neighbor
 	}
 	return result
 }

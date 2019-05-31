@@ -13,7 +13,7 @@ type FPNode struct {
 	Parent   *FPNode
 	Tree     *FPTree
 	Children map[ItemType]*FPNode
-	Neighber *FPNode
+	Neighbor *FPNode
 }
 
 // NewFPNode 生成新的节点
