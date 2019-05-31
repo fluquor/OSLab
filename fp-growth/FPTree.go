@@ -82,6 +82,7 @@ func FindFrequentItemsets(transactions []Transaction, min_supp float64, itemSetC
 			delete(items, item)
 		}
 	}
+
 	cleanTrans := func(trans Transaction) Transaction {
 		newTrans := make([]ItemType, 0)
 		for _, item := range trans {
