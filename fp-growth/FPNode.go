@@ -1,10 +1,10 @@
 package growth
 
-type ItemType string
+type ItemType int
 type Transaction []ItemType
 
 const (
-	NilItem ItemType = ""
+	NilItem ItemType = -1
 )
 
 type FPNode struct {
