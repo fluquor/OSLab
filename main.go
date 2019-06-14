@@ -19,7 +19,7 @@ func main() {
 	fmt.Printf("Parsed %d trans \n", count)
 
 	itemSetChan := make(chan []growth.ItemType, 100)
-	go growth.FindFrequentItemsets(trans, MinSuppRatio, itemSetChan)
+	growth.FindFrequentItemsets(trans, MinSuppRatio, itemSetChan)
 	fCount := 0
 	for range itemSetChan {
 		fCount++

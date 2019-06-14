@@ -22,7 +22,9 @@ func BuildTransactions(filename string) ([]Transaction, int) {
 		log.Fatal(err)
 	}
 	defer f.Close()
+	b := make([]byte, 0, 64*1024)
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(b, 1024*1024)
 	count := 0
 	for scanner.Scan() {
 		t := make([]ItemType, 0)
@@ -37,6 +39,9 @@ func BuildTransactions(filename string) ([]Transaction, int) {
 			t = append(t, ItemType(i1))
 		}
 		result = append(result, t)
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
 	}
 	return result, count
 }
