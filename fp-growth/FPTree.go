@@ -22,7 +22,7 @@ type FPTree struct {
 	Routes map[ItemType]Route
 }
 
-func BuildTransactions(filename string) ([]Transaction, int) {
+func BuildTransactions(filename string, lines int) ([]Transaction, int) {
 	result := make([]Transaction, 0)
 	f, err := os.Open(filename)
 	if err != nil {
@@ -35,7 +35,6 @@ func BuildTransactions(filename string) ([]Transaction, int) {
 	count := 0
 	for scanner.Scan() {
 		t := make([]ItemType, 0)
-		count++
 		ss := strings.Split(scanner.Text(), " ")
 		for _, s := range ss {
 			// log.Println(s)
@@ -47,6 +46,10 @@ func BuildTransactions(filename string) ([]Transaction, int) {
 			t = append(t, ItemType(i1))
 		}
 		result = append(result, t)
+		count++
+		if lines > 0 && count >= lines {
+			break
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
@@ -141,18 +144,20 @@ func SaveTreeToFile(r *FPTree, filename string) bool {
 
 func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, treeSaveFile string) [][]ItemType {
 	minSuppCount := int(float64(len(transactions)) * minSuppRatio)
-	fmt.Printf("最小置信出现次数: %d \n", minSuppCount)
+	fmt.Printf("最小支持出现次数: %d \n", minSuppCount)
 	items := make(map[ItemType]int)
 	for _, trans := range transactions {
 		for _, item := range trans {
 			items[item]++
 		}
 	}
+	log.Printf("扫描了%d个商品", len(items))
 	for item, count := range items {
 		if count < minSuppCount {
 			delete(items, item)
 		}
 	}
+	log.Printf("清洗后剩余%d个商品", len(items))
 	// log.Println(items)
 
 	cleanTrans := func(trans Transaction) Transaction {
@@ -192,8 +197,6 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 			go func(item ItemType, nodes []*FPNode, result chan<- []ItemType, n *sync.WaitGroup) {
 				defer n.Done()
 				support := 0
-				// log.Printf("Start a new goroutine,nodes length: %d\n", len(nodes))
-				// log.Printf("Nodes 0:%d \n",nodes[0].Count)
 				for _, node := range nodes {
 					support += node.Count
 				}
@@ -210,7 +213,7 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 						foundSet := []ItemType{item}
 						foundSet = append(foundSet, suffix...)
 						result <- foundSet
-						log.Println("已找到一个集合并放入channel")
+						// log.Println("已找到一个集合并放入channel")
 						condTree := ConditionalTreeFromPaths(t.PrefixPaths(item))
 						findWithSuffix(condTree, foundSet, result, n)
 					}
