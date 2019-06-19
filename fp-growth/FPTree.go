@@ -2,11 +2,13 @@ package growth
 
 import (
 	"bufio"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Route [2]*FPNode
@@ -31,9 +33,10 @@ func BuildTransactions(filename string) ([]Transaction, int) {
 		count++
 		ss := strings.Split(scanner.Text(), " ")
 		for _, s := range ss {
+			// log.Println(s)
 			i1, err := strconv.Atoi(s)
 			if err != nil {
-				log.Fatalln(err)
+				log.Println(err)
 				continue
 			}
 			t = append(t, ItemType(i1))
@@ -115,8 +118,25 @@ func (t *FPTree) PrefixPaths(item ItemType) [][]*FPNode {
 	}
 	return result
 }
-func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, itemSetChan chan<- []ItemType) {
+
+func SaveTreeToFile(r *FPTree, filename string) bool {
+	gob.Register(FPTree{})
+	treeFile, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		fmt.Println(err)
+	}
+	enc := gob.NewEncoder(treeFile)
+	err2 := enc.Encode(r)
+	if err2 != nil {
+		fmt.Println(err2)
+		return false
+	}
+	return true
+}
+
+func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, treeSaveFile string) [][]ItemType {
 	minSuppCount := int(float64(len(transactions)) * minSuppRatio)
+	fmt.Printf("最小置信出现次数: %d \n", minSuppCount)
 	items := make(map[ItemType]int)
 	for _, trans := range transactions {
 		for _, item := range trans {
@@ -143,37 +163,74 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, item
 	for _, trans := range transactions {
 		master.Add(cleanTrans(trans))
 	}
-	fmt.Printf("Tree build complete with %d children\n", len(master.Root.Children))
+	log.Printf("Tree build complete with %d children\n", len(master.Root.Children))
+
+	for _, node := range master.Root.Children {
+		fmt.Printf("置信度为:%d \n", node.Count)
+	}
+
+	// 保存Tree结果到本地
+	// if treeSaveFile != "" {
+	// 	log.Printf("开始保存Tree结构到本地...\n")
+	// 	if ok := SaveTreeToFile(master, treeSaveFile); ok {
+	// 		log.Printf("Tree结构已经保存到 %s", treeSaveFile)
+	// 	}
+	// }
+
 	// 利用管道来返回结果
-	var findWithSuffix func(*FPTree, []ItemType, chan<- []ItemType)
-	findWithSuffix = func(t *FPTree, suffix []ItemType, result chan<- []ItemType) {
+	itemSetChan := make(chan []ItemType)
+	var n sync.WaitGroup
+	var findWithSuffix func(*FPTree, []ItemType, chan<- []ItemType, *sync.WaitGroup)
+	findWithSuffix = func(t *FPTree, suffix []ItemType, result chan<- []ItemType, n *sync.WaitGroup) {
 		for item, nodes := range t.Items() {
-			support := 0
-			for _, node := range nodes {
-				support += node.Count
-			}
-			if support > minSuppCount {
-				for _, v := range suffix {
-					if item == v {
-						continue
-					} else {
+			log.Println("Start a new goroutine")
+			n.Add(1)
+			go func(item ItemType, nodes []*FPNode, result chan<- []ItemType, n *sync.WaitGroup) {
+				defer n.Done()
+				support := 0
+				for _, node := range nodes {
+					support += node.Count
+				}
+				// log.Printf("Support: %d\n", support)
+				inFlag := false
+				if support >= minSuppCount {
+					for _, v := range suffix {
+						if item == v {
+							inFlag = true
+							break
+						}
+					}
+					if !inFlag {
 						foundSet := []ItemType{item}
 						foundSet = append(foundSet, suffix...)
 						result <- foundSet
+						log.Println("已找到一个集合并放入channel")
+						condTree := ConditionalTreeFromPaths(t.PrefixPaths(item))
+						n.Add(1)
+						log.Println("condTree构建完毕,开始搜寻")
+						findWithSuffix(condTree, foundSet, result, n)
 					}
+
 				}
-
-			}
-
+			}(item, nodes, result, n)
 		}
-	}
 
-	findWithSuffix(master, []ItemType{}, itemSetChan)
-	close(itemSetChan)
+	}
+	log.Println("开始寻找Suffix")
+	findWithSuffix(master, []ItemType{}, itemSetChan, &n)
+	go func() {
+		n.Wait()
+		close(itemSetChan)
+	}()
+	results := make([][]ItemType, 0)
+	for itemSet := range itemSetChan {
+		results = append(results, itemSet)
+	}
+	return results
 }
 
 func ConditionalTreeFromPaths(paths [][]*FPNode) *FPTree {
-	tree := &FPTree{}
+	tree := NewFPTree()
 	var condItem = NilItem
 	items := make(map[ItemType]bool)
 	for _, path := range paths {
