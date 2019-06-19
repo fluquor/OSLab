@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
+)
+
+const (
+	DEBUG = true
 )
 
 type Route [2]*FPNode
@@ -50,7 +55,7 @@ func BuildTransactions(filename string) ([]Transaction, int) {
 }
 
 func NewFPTree() *FPTree {
-	root := &FPNode{Children: make(map[ItemType]*FPNode)}
+	root := &FPNode{Item: NilItem, Count: NilCount, Children: make(map[ItemType]*FPNode)}
 	root.Parent = root
 	return &FPTree{Root: root, Routes: make(map[ItemType]Route)}
 }
@@ -92,8 +97,8 @@ func (t *FPTree) Nodes(item ItemType) []*FPNode {
 	route := t.Routes[item]
 	result := make([]*FPNode, 0)
 	node := route[0]
-	result = append(result, node)
 	for node != nil {
+		result = append(result, node)
 		node = node.Neighbor
 	}
 	return result
@@ -148,6 +153,7 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 			delete(items, item)
 		}
 	}
+	// log.Println(items)
 
 	cleanTrans := func(trans Transaction) Transaction {
 		newTrans := make([]ItemType, 0)
@@ -156,6 +162,9 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 				newTrans = append(newTrans, item)
 			}
 		}
+		sort.Slice(newTrans, func(i, j int) bool {
+			return items[newTrans[i]] > items[newTrans[j]]
+		})
 		return newTrans
 	}
 
@@ -164,11 +173,6 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 		master.Add(cleanTrans(trans))
 	}
 	log.Printf("Tree build complete with %d children\n", len(master.Root.Children))
-
-	for _, node := range master.Root.Children {
-		fmt.Printf("置信度为:%d \n", node.Count)
-	}
-
 	// 保存Tree结果到本地
 	// if treeSaveFile != "" {
 	// 	log.Printf("开始保存Tree结构到本地...\n")
@@ -178,16 +182,18 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 	// }
 
 	// 利用管道来返回结果
-	itemSetChan := make(chan []ItemType)
-	var n sync.WaitGroup
+	itemSetChan := make(chan []ItemType, 100)
+	n := &sync.WaitGroup{}
 	var findWithSuffix func(*FPTree, []ItemType, chan<- []ItemType, *sync.WaitGroup)
 	findWithSuffix = func(t *FPTree, suffix []ItemType, result chan<- []ItemType, n *sync.WaitGroup) {
 		for item, nodes := range t.Items() {
-			log.Println("Start a new goroutine")
+
 			n.Add(1)
 			go func(item ItemType, nodes []*FPNode, result chan<- []ItemType, n *sync.WaitGroup) {
 				defer n.Done()
 				support := 0
+				// log.Printf("Start a new goroutine,nodes length: %d\n", len(nodes))
+				// log.Printf("Nodes 0:%d \n",nodes[0].Count)
 				for _, node := range nodes {
 					support += node.Count
 				}
@@ -206,8 +212,6 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 						result <- foundSet
 						log.Println("已找到一个集合并放入channel")
 						condTree := ConditionalTreeFromPaths(t.PrefixPaths(item))
-						n.Add(1)
-						log.Println("condTree构建完毕,开始搜寻")
 						findWithSuffix(condTree, foundSet, result, n)
 					}
 
@@ -216,14 +220,14 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 		}
 
 	}
-	log.Println("开始寻找Suffix")
-	findWithSuffix(master, []ItemType{}, itemSetChan, &n)
+	findWithSuffix(master, []ItemType{}, itemSetChan, n)
 	go func() {
 		n.Wait()
 		close(itemSetChan)
 	}()
 	results := make([][]ItemType, 0)
 	for itemSet := range itemSetChan {
+
 		results = append(results, itemSet)
 	}
 	return results

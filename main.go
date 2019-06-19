@@ -9,7 +9,7 @@ import (
 const (
 	defaultDataFile = "data/test.dat"
 	defaultTreeFile = "data/tree.gob"
-	MinSuppRatio    = 0.0
+	MinSuppRatio    = 0.8
 )
 
 func main() {
@@ -19,7 +19,6 @@ func main() {
 	log.Printf("开始读取输入文件: %s\n", *trainDataFile)
 	trans, count := growth.BuildTransactions(*trainDataFile)
 	log.Printf("读取了 %d 条交易记录 \n", count)
-	growth.FindFrequentItemsets(trans, MinSuppRatio, *TreeFile)
-	fCount := 0
-	log.Printf("Get %d frequend itemsets\n", fCount)
+	result := growth.FindFrequentItemsets(trans, MinSuppRatio, *TreeFile)
+	log.Printf("Get %d frequend itemsets\n", len(result))
 }

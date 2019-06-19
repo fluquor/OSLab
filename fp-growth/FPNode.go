@@ -4,7 +4,8 @@ type ItemType int
 type Transaction []ItemType
 
 const (
-	NilItem ItemType = -1
+	NilItem  ItemType = -1
+	NilCount          = -1
 )
 
 type FPNode struct {
@@ -30,7 +31,7 @@ func (n *FPNode) Add(child *FPNode) {
 
 // Search 在节点的孩子节点中搜索目标Item对应节点
 func (n FPNode) Search(item ItemType) *FPNode {
-	if _, ok := n.Children[item]; !ok {
+	if _, ok := n.Children[item]; ok {
 		return n.Children[item]
 	}
 	return nil
@@ -44,6 +45,6 @@ func (n *FPNode) Increment() {
 	}
 }
 
-func (n FPNode) IsRoot() bool {
-	return false
+func (n *FPNode) IsRoot() bool {
+	return n.Item == NilItem && n.Count == NilCount
 }
