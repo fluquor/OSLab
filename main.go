@@ -17,7 +17,7 @@ const (
 	setsFile         = "data/result_sets.txt"
 	defautMaxRecords = 10000
 	defaultMaxUsers  = 10
-	MinSuppRatio     = 0.25
+	MinSuppRatio     = 0.093
 )
 
 func PrintSets(s [][]growth.ItemType) {

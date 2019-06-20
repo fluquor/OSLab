@@ -154,6 +154,7 @@ func SaveTreeToFile(r *FPTree, filename string) bool {
 	return true
 }
 
+// FindFrequentItemsets 挖掘频繁项集
 func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, treeSaveFile string) [][]ItemType {
 	minSuppCount := int(float64(len(transactions)) * minSuppRatio)
 	fmt.Printf("最小支持出现次数: %d \n", minSuppCount)
