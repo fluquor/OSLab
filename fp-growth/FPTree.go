@@ -1,5 +1,6 @@
 package growth
 
+// 代码参考:https://github.com/enaeseth/python-fp-growth/blob/master/fp_growth.py
 import (
 	"bufio"
 	"encoding/gob"
@@ -13,15 +14,20 @@ import (
 )
 
 const (
+	// DEBUG 是否处于debug状态
 	DEBUG = true
 )
 
+// Route 结构保存了包含某个物品的路径的首尾两个节点
 type Route [2]*FPNode
+
+// FPTree 是一个用来存储所有交易记录的树结构
 type FPTree struct {
 	Root   *FPNode
 	Routes map[ItemType]Route
 }
 
+// BuildTransactions 读取输入文件并解析,返回交易列表和成功读取的交易数目
 func BuildTransactions(filename string, lines int) ([]Transaction, int) {
 	result := make([]Transaction, 0)
 	f, err := os.Open(filename)
@@ -57,6 +63,7 @@ func BuildTransactions(filename string, lines int) ([]Transaction, int) {
 	return result, count
 }
 
+// NewFPTree 生成一个空的FPTree
 func NewFPTree() *FPTree {
 	root := &FPNode{Item: NilItem, Count: NilCount, Children: make(map[ItemType]*FPNode)}
 	root.Parent = root
@@ -71,6 +78,7 @@ func (t *FPTree) updateRoute(point *FPNode) {
 	}
 }
 
+// Add 向FPTree插入交易数据
 func (t *FPTree) Add(trans Transaction) {
 	point := t.Root
 	for _, item := range trans {
@@ -93,6 +101,8 @@ func (t FPTree) Items() map[ItemType][]*FPNode {
 	}
 	return result
 }
+
+// Nodes 返回所有包含目标物品的节点
 func (t *FPTree) Nodes(item ItemType) []*FPNode {
 	if _, ok := t.Routes[item]; !ok {
 		return []*FPNode{}
@@ -107,6 +117,7 @@ func (t *FPTree) Nodes(item ItemType) []*FPNode {
 	return result
 }
 
+// PrefixPaths 返回所有以给定物品为结尾的所有路径
 func (t *FPTree) PrefixPaths(item ItemType) [][]*FPNode {
 	collectPath := func(t *FPNode) []*FPNode {
 		path := make([]*FPNode, 0)
@@ -127,6 +138,7 @@ func (t *FPTree) PrefixPaths(item ItemType) [][]*FPNode {
 	return result
 }
 
+// SaveTreeToFile 保存树结构到文件中
 func SaveTreeToFile(r *FPTree, filename string) bool {
 	gob.Register(FPTree{})
 	treeFile, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
@@ -159,7 +171,7 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 	}
 	log.Printf("清洗后剩余%d个商品", len(items))
 	// log.Println(items)
-
+	// 根据supp阈值对所有交易进行清洗,删除低于阈值的所有物品并从大到小进行排序
 	cleanTrans := func(trans Transaction) Transaction {
 		newTrans := make([]ItemType, 0)
 		for _, item := range trans {
@@ -173,6 +185,7 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 		return newTrans
 	}
 
+	// 构造FP-Tree
 	master := NewFPTree()
 	for _, trans := range transactions {
 		master.Add(cleanTrans(trans))
@@ -224,6 +237,7 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 
 	}
 	findWithSuffix(master, []ItemType{}, itemSetChan, n)
+	// 等待所有goroutine都结束,关闭结果channel
 	go func() {
 		n.Wait()
 		close(itemSetChan)
@@ -236,6 +250,7 @@ func FindFrequentItemsets(transactions []Transaction, minSuppRatio float64, tree
 	return results
 }
 
+// ConditionalTreeFromPaths 根据条件模式基构建条件FPTree
 func ConditionalTreeFromPaths(paths [][]*FPNode) *FPTree {
 	tree := NewFPTree()
 	var condItem = NilItem
